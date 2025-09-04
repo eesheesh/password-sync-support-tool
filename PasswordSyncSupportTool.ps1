@@ -34,9 +34,6 @@ $Ver = "2.0.3.0"
 # Const ToolName = "PasswordSyncSupportTool"
 $ToolName = "PasswordSyncSupportTool"
 
-# Set objShell = WScript.CreateObject("Wscript.Shell")
-$objShell = New-Object -ComObject Wscript.Shell
-
 # On Error Resume Next  ' Errors will be handled by the code
 $ErrorActionPreference = "Continue"
 
