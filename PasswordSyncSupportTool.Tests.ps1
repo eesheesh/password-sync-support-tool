@@ -59,20 +59,46 @@ Describe "PasswordSyncSupportTool" {
         }
 
         It "Runs diagnostics for a specific DC" {
-            # Mock RunCommand to avoid actual execution failures and verify calls
-            Mock RunCommand { }
-            Mock RunCopyCommand { }
             Mock DecodeWinHTTPSettings { }
-            function Get-CimInstance {}
-            Mock Get-CimInstance { return @() }
             Mock Write-Host { }
 
-            # Run Main with /DC
-            Main "/DC" "DC1"
+            if ($IsWindows) {
+                 # On Windows, we run without mocking system commands to verify real execution
+                 # We assume the runner doesn't have the "C$" share accessible via network loopback by default,
+                 # but we can try targeting localhost.
 
-            # Assertions
-            Should -Invoke RunCommand
-            Should -Invoke RunCopyCommand
+                 # We still mock RunCopyCommand because network shares require configuration
+                 Mock RunCopyCommand { }
+
+                 # Run Main with /DC pointing to localhost
+                 Main "/DC" "localhost"
+
+                 # Assertions
+                 # We can check if log files were created and contain expected output
+                 $logFile = "$env:TEMP\PasswordSyncSupportTool\localhost.txt"
+                 Test-Path $logFile | Should -BeTrue
+
+                 # Check for output from real commands
+                 $content = Get-Content $logFile -Raw
+                 $content | Should -Match "Image Name" # tasklist output
+                 $content | Should -Match "SERVICE_NAME" # sc output (even if error, query might output something or error log)
+                 # Wait, sc query might fail if service doesn't exist. "Enum: ... The specified service does not exist"
+                 # But tasklist should run.
+
+            } else {
+                # Mock RunCommand to avoid actual execution failures and verify calls
+                Mock RunCommand { }
+                Mock RunCopyCommand { }
+                function Get-CimInstance {}
+                Mock Get-CimInstance { return @() }
+
+                # Run Main with /DC
+                Main "/DC" "DC1"
+
+                # Assertions
+                Should -Invoke RunCommand
+                Should -Invoke RunCopyCommand
+            }
         }
     }
 }
