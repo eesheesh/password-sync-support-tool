@@ -41,6 +41,7 @@ $script:LogFileName = ""
 $script:TempDir = ""
 $script:CurrentTimeString = ""
 $script:CurrentComputerName = ""
+$script:CurrentScriptPath = $PSCommandPath
 
 
 function Get-CurrentTimeString {
@@ -129,7 +130,14 @@ function RunCommand($Command, $OutputFileNameBase) {
     $errFile = "$OutputFileNameBase.err"
 
     # We use cmd /c for compatibility
-    $p = Start-Process -FilePath "cmd" -ArgumentList "/c $Command 1>>$outFile 2>>$errFile" -WindowStyle Hidden -Wait -PassThru
+    $processArgs = @{
+        FilePath = "cmd"
+        ArgumentList = "/c $Command 1>>""$outFile"" 2>>""$errFile"""
+        Wait = $true
+        PassThru = $true
+    }
+    if ($IsWindows) { $processArgs.WindowStyle = 'Hidden' }
+    $p = Start-Process @processArgs
 
     # PrintErrorIfNeeded "Running command '" & Command & "' failed. "
     if ($p.ExitCode -ne 0) {
@@ -933,7 +941,7 @@ function Main {
     if (-not $ParameterProvided) {
         if ($IsWindows -and -not (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
              $psExe = if ($PSVersionTable.PSEdition -eq 'Core') { "pwsh" } else { "powershell" }
-             Start-Process $psExe -ArgumentList "-File `"$PSCommandPath`" /ELEVATED" -Verb RunAs
+             Start-Process $psExe -ArgumentList "-File `"$script:CurrentScriptPath`" /ELEVATED" -Verb RunAs
              exit
         }
     }
@@ -1032,8 +1040,9 @@ function Main {
     #         arrWritableDCs(i) & " 1>" & TempDir & "\" & arrWritableDCs(i) & _
     #         ".txt 2>&1 ")
             $outFile = "$script:TempDir\$($arrWritableDCs[$i]).txt"
+            $errFile = "$script:TempDir\$($arrWritableDCs[$i]).err"
             $psExe = if ($PSVersionTable.PSEdition -eq 'Core') { "pwsh" } else { "powershell" }
-            $arrExec[$i] = Start-Process -FilePath $psExe -ArgumentList "-File", "`"$PSCommandPath`"", "/DC", $arrWritableDCs[$i] -RedirectStandardOutput $outFile -RedirectStandardError $outFile -PassThru
+            $arrExec[$i] = Start-Process -FilePath $psExe -ArgumentList "-File", "`"$script:CurrentScriptPath`"", "/DC", $arrWritableDCs[$i] -RedirectStandardOutput $outFile -RedirectStandardError $errFile -PassThru
     #     LogErrorIfNeeded "Error starting job"
             LogErrorIfNeeded "Error starting job"
     #     WScript.Sleep 100

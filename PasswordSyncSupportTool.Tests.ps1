@@ -13,6 +13,9 @@ Describe "PasswordSyncSupportTool" {
 
             # Source the script (without executing Main)
             . $ScriptPath
+
+            # Ensure script:CurrentScriptPath is set correctly for Main to use in child processes
+            $script:CurrentScriptPath = $ScriptPath
         }
 
         AfterAll {
@@ -30,29 +33,8 @@ Describe "PasswordSyncSupportTool" {
             Mock Write-Host { }
             # We verify Write-Host calls later or just ignore output
 
-            # Mock Start-Process
-            # We need it to return an object with HasExited=$true
-            # And we need to simulate the output file creation
-            Mock Start-Process {
-                $outFile = $null
-                # Attempt to find RedirectStandardOutput in arguments
-
-                if ($RedirectStandardOutput) {
-                    $outFile = $RedirectStandardOutput
-                    "Output from Mock" | Out-File -FilePath $outFile -Encoding utf8
-                }
-
-                return [PSCustomObject]@{
-                    HasExited = $true
-                    ExitCode = 0
-                }
-            }
-
             # Run Main
             Main
-
-            # Assertions
-            Should -Invoke Start-Process -Times 2
 
             # Verify folders created
             $dc1Path = Join-Path $env:TEMP "PasswordSyncSupportTool_MOCKED_TIME"
@@ -73,7 +55,7 @@ Describe "PasswordSyncSupportTool" {
             New-Item -ItemType Directory -Path $TestTemp | Out-Null
             $env:TEMP = $TestTemp
 
-            Write-Host "PSScriptRoot: $PSScriptRoot"; Write-Host "ScriptPath: $ScriptPath"; . $ScriptPath
+            . $ScriptPath
         }
 
         It "Runs diagnostics for a specific DC" {
